@@ -9,13 +9,14 @@
 ## The value stored at each index corresponds to the row the Queen is in
 
 import numpy as np
-import math as m
+import matplotlib.pyplot as mpl
 import random as ran
 
 # Helpers
 ########################################################################################
 
 
+# takes 2 indexes in a string and swaps the characters of said indexes
 def swap_Characters(string, index1, index2):
     if index1 < 0 or index2 < 0 or index1 >= len(string) or index2 >= len(string):
         raise IndexError("Out of range")
@@ -35,6 +36,37 @@ def swap_Characters(string, index1, index2):
     return b4_char1 + char2 + between_char1_and_char2 + char1 + after_char2
 
 
+# traverses the state list in order to compute average and find the largest
+# this will be used to create a plot of the GA over iterations
+def total_Average_Best_Fitness(states):
+    sum = 0
+    best_val = 0
+    best_indi = None
+    for state in states:
+        sum += state.fitness
+        if state.fitness > best_val:
+            best_val = state.fitness
+            best_indi = state
+
+    return Data_Set(sum, sum / len(states), best_val, best_indi)
+
+
+########################################################################################
+
+
+# Data_Set Class
+# Likely unnecessary, but I was sick of iterating lists and wanted a more readable object
+########################################################################################
+
+
+class Data_Set:
+    def __init__(self, total, avg, best_val, best_node):
+        self.total = total
+        self.average = avg
+        self.best_val = best_val
+        self.best_Indi = best_node
+
+
 ########################################################################################
 
 
@@ -47,7 +79,9 @@ class Individual:
         self.state_string = qString
         self.fitness = self.determine_Fitness()
 
-    # determines the number of pairs of queens that are attacking in this individual board state
+    # determines the number of pairs of queens that are non - attacking in this individual board state
+    # this is accomplished by counting the number of attacking queens and subtracting from the ceiling of non-attackers
+    # in 8 queens, this ceiling is 28
     def determine_Fitness(self):
         board = self.convert_To_Board()
         length = len(self.state_string)
@@ -108,8 +142,10 @@ class Individual:
 ########################################################################################
 
 
+# creates random shuffles of the queen_set
+# using the knowledge that in a solution of 8queens no queen will share a row or column
+# this significantly lowers the number of possible states
 def generate_Initial_Population(pop_size):
-    # this may need to be completely random
     queen_set = {0, 1, 2, 3, 4, 5, 6, 7}
     pop_list = []
     fitness_total = 0
@@ -134,6 +170,7 @@ def generate_Initial_Population(pop_size):
 ########################################################################################
 
 
+# using probability, selects parents randomly with weight towards higher fitness scores
 def select_Parents(pop, fitness_total):
     probs = []
     # get fitness total
@@ -144,7 +181,6 @@ def select_Parents(pop, fitness_total):
     parents = []
     # select on the roulette wheel
     for i in range(0, len(pop)):
-        # this doesnt fix but doesn't really do anything differently from old version. looks cleaner tho
         index = ran.choices(range(len(pop)), weights=probs)[0]
         parents.append(pop[index])
 
@@ -156,13 +192,17 @@ def select_Parents(pop, fitness_total):
 
 # Crossover
 ########################################################################################
+
+
+# picks a random spot in parents to split the strings and swap genes
 def crossover(parents):
     children = []
-    fitness_total = 0
+    # used to generalized so n-queens can be solved rather than just 8-queens
+    n_value = len(parents[0].state_string)
 
     while parents:
         curr_length = len(parents)
-        # print(curr_length)
+
         # remove curr parents from list
         parent1 = parents.pop(ran.randint(0, curr_length - 1))
         parent2 = parents.pop(ran.randint(0, curr_length - 2))
@@ -187,23 +227,22 @@ def crossover(parents):
 
         children.append(Individual(child1))
         children.append(Individual(child2))
-        if children[-1].fitness == 28:
-            return [children[-1]]
-        if children[-2].fitness == 28:
-            return [children[-2]]
-        fitness_total += children[-1].fitness + children[-2].fitness
+        # if children[-1].fitness == (n_value * ((n_value - 1) / 2)):
+        #     return children[-1]
+        # if children[-2].fitness == (n_value * ((n_value - 1) / 2)):
+        #     return children[-2]
 
-    return (children, fitness_total)
+    return children
 
 
-# something is wrong here -- MIGHT BE FINE -- TEST ONCE YOU FIX PARENT SELECTION
-# the children are not being changed enough
-def ordered_crossover(parents):
+# DEPR -- REQUIRES CHANGES TO MATCH RETURN OF crossover()
+# this should perserve order of parents whereas the basic crossover does not. not currently utilized
+def ordered_Crossover(parents):
     children = []
     fitness_total = 0
     while parents:
         curr_length = len(parents)
-        # print(curr_length)
+
         # remove curr parents from list
         parent1 = parents.pop(ran.randint(0, curr_length - 1))
         parent2 = parents.pop(ran.randint(0, curr_length - 2))
@@ -259,6 +298,7 @@ def ordered_crossover(parents):
 ########################################################################################
 
 
+# gets the strings ready for swap_Characters
 def swap(state):
     keep_looping = True
     swap_start = 0
@@ -280,6 +320,7 @@ def swap(state):
     state.state_string = swap_Characters(state.state_string, swap_start, swap_end)
 
 
+# 5% of the time, swap 2 queen's row # in a state
 def mutate(states):
     for state in states:
         roll = ran.random()
@@ -290,44 +331,112 @@ def mutate(states):
 ########################################################################################
 
 
+# graphing
+########################################################################################
+
+
+def get_Graphing():
+    pass
+
+
+########################################################################################
+
+
 # main
 ########################################################################################
 
 
 def main():
-    population_size = 250
+    population_size = 100
     num_iterations = 1000
+    generation_data = []
+    display_graph = True
+    display_solution = True
+    samples = []
+    n_val = 0
 
     # generate initial population
+    # if it returns a list w/ len == 1, it is a solution and we don't need to search
+    # otherwise, a list w/ len == 2 will be returned and the algorithm proceeds
     init = generate_Initial_Population(population_size)
+    solution = None
     if len(init) == 1:
+        solution = init[0]
         print("Solution Found! We got lucky and generated one!")
         print(init[0].state_string)
         print(init[0].convert_To_Board())
     else:
+        n_val = len(init[0][0].state_string)
         states = init[0]
-        # test
-        # for i in states:
-        #     print(i.state_string)
-        # print()
         fitness_total = init[1]
+
         # loop to find solution
         for i in range(0, num_iterations):
-            # print(fitness_total)
+            # in order to make this more efficient, selection, crossover, mutation, data_set ought to be combined into 1 traversal of states.
+            # as it stands, they are seperated loops, making the time complex significantly worse
             parents = select_Parents(states, fitness_total)
-            # test
-            # for j in parents:
-            #     print(j.state_string)
             crossover_list = crossover(parents)
-            if len(crossover_list) == 1:
-                print("Solution Found!")
-                print(f"It took {i} generations to find!")
-                print(crossover_list[0].state_string)
-                print(crossover_list[0].convert_To_Board())
-                break
-            states = crossover_list[0]
+
+            # removed for graphing purposes
+            # if type(crossover_list) == Individual:
+            #     solution = crossover_list
+            #     break
+
+            states = crossover_list
             mutate(states)
-            fitness_total = crossover_list[1]
+            samples.append(ran.choice(states))
+            # returns a list of data where [0] = total, [1] = average, [2] = best, [3] = best Individual
+            new_data_set = total_Average_Best_Fitness(states)
+            generation_data.append(new_data_set)
+            fitness_total = new_data_set.total
+            if new_data_set.best_val == (n_val * ((n_val - 1) / 2)):
+                solution = new_data_set.best_Indi
+                break
+
+    if solution != None and display_solution == True:
+        print("Solution Found!")
+        print(f"It took {len(generation_data)} generations to find!")
+        # Commented out in order to make printing cleaner. Uncomment to view a sample from each generation
+        # print("Samples from each generation")
+        # for index in range(0, len(samples)):
+        #     print(f"Generation {index + 1}:")
+        #     print(samples[index].state_string)
+        #     print(samples[index].convert_To_Board())
+        #     print()
+        print("Solution:")
+        print(solution.state_string)
+        print(solution.convert_To_Board())
+
+    if display_graph == True:
+        # graph stuff
+        # get_Graphing()
+
+        x = 1 + np.arange(len(generation_data))
+        averages = []
+        bests = []
+        for gens in generation_data:
+            averages.append(gens.average)
+            bests.append(gens.best_val)
+        averages = np.array(averages)
+        bests = np.array(bests)
+        best, avg = mpl.subplots()
+
+        avg.plot(x, averages, linewidth=2.0)
+        avg.plot(x, bests, linewidth=2.0)
+        avg.set(
+            xlim=(0, len(generation_data) + 2),
+            xticks=np.arange(1, len(generation_data) + 2),
+            ylim=(0, solution.fitness + 1),
+            yticks=np.arange(1, solution.fitness + 1),
+        )
+
+        mpl.xlabel("Population Generation")
+        mpl.ylabel("Average (BLUE) and Best (ORANGE) Fitness")
+        mpl.title("8-Queens Genetic Algorithm")
+        mpl.show()
+
+    else:
+        print("No solution found. Requires more generations or a larger population")
 
 
 if __name__ == "__main__":
