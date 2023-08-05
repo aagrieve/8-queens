@@ -3,7 +3,7 @@
 
 # DETAILS
 ## This program finds a solution to the 8-Queens problem - https://en.wikipedia.org/wiki/Eight_queens_puzzle - using a Genetic Algorithm
-###
+####
 ## The Queens' position is represented in an 8 character string of numbers 0-7
 ## The index of the string corresponds to the columns of a chessboard
 ## The value stored at each index corresponds to the row the Queen is in
@@ -52,7 +52,8 @@ class Individual:
         board = self.convert_To_Board()
         length = len(self.state_string)
         count = 0
-        for i in range(0, length):
+        fitness = int(length * (length - 1) / 2)
+        for i in range(0, length - 1):
             curr = int(self.state_string[i])
             # row
             slice = board[curr, i:]
@@ -89,7 +90,7 @@ class Individual:
             freq = np.count_nonzero(slice)
             if freq > 1:
                 count += freq - 1
-        return count
+        return fitness - count
 
     # converts an 8 character string into a 8x8 numpy array so that fitness can be determined and board can be displayed
     def convert_To_Board(self):
@@ -118,7 +119,7 @@ def generate_Initial_Population(pop_size):
         ran.shuffle(copy)
         copy = "".join(map(str, copy))
         new_indiv = Individual(copy)
-        if new_indiv.fitness == 0:
+        if new_indiv.fitness == 28:
             return [new_indiv]
         fitness_total += new_indiv.fitness
         pop_list.append(new_indiv)
@@ -134,24 +135,18 @@ def generate_Initial_Population(pop_size):
 
 
 def select_Parents(pop, fitness_total):
-    poplist = []
-    norm_fitness_sum = 0
+    probs = []
     # get fitness total
     for i in pop:
         norm_fitness = i.fitness / fitness_total
-        norm_fitness_sum += norm_fitness
-        poplist.append([i, norm_fitness])
+        probs.append(norm_fitness)
 
     parents = []
     # select on the roulette wheel
     for i in range(0, len(pop)):
-        roll = ran.random()
-        sum = 0
-        for j in poplist:
-            sum += j[1]
-            if sum >= roll:
-                parents.append(j[0])
-                break
+        # this doesnt fix but doesn't really do anything differently from old version. looks cleaner tho
+        index = ran.choices(range(len(pop)), weights=probs)[0]
+        parents.append(pop[index])
 
     return parents
 
@@ -192,16 +187,16 @@ def crossover(parents):
 
         children.append(Individual(child1))
         children.append(Individual(child2))
-        if children[-1].fitness == 0:
+        if children[-1].fitness == 28:
             return [children[-1]]
-        if children[-2].fitness == 0:
+        if children[-2].fitness == 28:
             return [children[-2]]
         fitness_total += children[-1].fitness + children[-2].fitness
 
     return (children, fitness_total)
 
 
-# something is wrong here
+# something is wrong here -- MIGHT BE FINE -- TEST ONCE YOU FIX PARENT SELECTION
 # the children are not being changed enough
 def ordered_crossover(parents):
     children = []
@@ -248,9 +243,9 @@ def ordered_crossover(parents):
         # append to children list
         children.append(Individual(child1))
         children.append(Individual(child2))
-        if children[-1].fitness == 0:
+        if children[-1].fitness == 28:
             return [children[-1]]
-        if children[-2].fitness == 0:
+        if children[-2].fitness == 28:
             return [children[-2]]
         fitness_total += children[-1].fitness + children[-2].fitness
 
@@ -300,7 +295,7 @@ def mutate(states):
 
 
 def main():
-    population_size = 100
+    population_size = 250
     num_iterations = 1000
 
     # generate initial population
@@ -312,16 +307,17 @@ def main():
     else:
         states = init[0]
         # test
-        for i in states:
-            print(i.state_string)
-        print()
+        # for i in states:
+        #     print(i.state_string)
+        # print()
         fitness_total = init[1]
         # loop to find solution
         for i in range(0, num_iterations):
+            # print(fitness_total)
             parents = select_Parents(states, fitness_total)
             # test
-            for j in parents:
-                print(j.state_string)
+            # for j in parents:
+            #     print(j.state_string)
             crossover_list = crossover(parents)
             if len(crossover_list) == 1:
                 print("Solution Found!")
