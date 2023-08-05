@@ -227,10 +227,6 @@ def crossover(parents):
 
         children.append(Individual(child1))
         children.append(Individual(child2))
-        # if children[-1].fitness == (n_value * ((n_value - 1) / 2)):
-        #     return children[-1]
-        # if children[-2].fitness == (n_value * ((n_value - 1) / 2)):
-        #     return children[-2]
 
     return children
 
@@ -331,17 +327,6 @@ def mutate(states):
 ########################################################################################
 
 
-# graphing
-########################################################################################
-
-
-def get_Graphing():
-    pass
-
-
-########################################################################################
-
-
 # main
 ########################################################################################
 
@@ -376,11 +361,6 @@ def main():
             # as it stands, they are seperated loops, making the time complex significantly worse
             parents = select_Parents(states, fitness_total)
             crossover_list = crossover(parents)
-
-            # removed for graphing purposes
-            # if type(crossover_list) == Individual:
-            #     solution = crossover_list
-            #     break
 
             states = crossover_list
             mutate(states)
